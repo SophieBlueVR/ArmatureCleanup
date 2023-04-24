@@ -1,0 +1,54 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+  workflow_dispatch:
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Get Details
+        id: details
+        run: |
+          version=$(awk '/^v[0-9]/ { print $1; exit }' CHANGELOG.md)
+          echo "version=${version}" >> $GITHUB_ENV
+          grep -zPo -e "(?s)${version}.*?\n-*?\n\n.*?\n\n" CHANGELOG.md | tail -n +3 >> .release_notes
+
+      - name: Create Zipfile
+        run: |
+          zip -r ArmatureCleanup-${{ env.version }}.zip * -x ArmatureCleanup-${{ env.version }}.unitypackage -x Makefile
+
+      - name: Setup Package
+        run: |
+          TARGET=Assets/SophieBlue/ArmatureCleanup
+          mkdir -p $TARGET
+          ls | grep -ve "\(Assets\|zip\)" | xargs -i{} mv {} $TARGET
+          .github/workflows/generate_meta.sh bc846a2331c27846b961e0f9fe107d54 > Assets/SophieBlue.meta
+          .github/workflows/generate_meta.sh 0124009027f4c92f68cc6df60787ce3e > Assets/SophieBlue/ArmatureCleanup.meta
+          find Assets -type f -name \*.meta >> metaList
+
+      - name: Create Unity Package
+        uses: pCYSl5EDgo/create-unitypackage@master
+        with:
+          package-path: 'ArmatureCleanup-${{ env.version }}.unitypackage'
+          include-files: metaList
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: "ArmatureCleanup ${{ env.version }}"
+          body_path: .release_notes
+          files: |
+            ArmatureCleanup-${{ env.version }}.unitypackage
+            ArmatureCleanup-${{ env.version }}.zip

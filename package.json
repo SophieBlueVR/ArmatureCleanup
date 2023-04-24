@@ -1,0 +1,26 @@
+{
+    "name": "io.github.sophiebluevr.armaturecleanup",
+    "version": "0.1.9",
+    "displayName": "Sophie's Armature Cleanup Tool",
+    "description": "A simple tool for cleaning up extra bones in an armature",
+    "type": "tool",
+    "unity": "2019.4",
+    "hideInEditor": "false",
+    "author": {
+        "name": "SophieBlue",
+        "url": "https://github.com/SophieBlueVR"
+    },
+    "documentationUrl": "https://github.com/SophieBlueVR/ArmatureCleanup",
+    "changelogUrl": "https://github.com/SophieBlueVR/ArmatureCleanup/blob/main/CHANGELOG.md",
+    "licenseUrl": "https://github.com/SophieBlueVR/ArmatureCleanup/blob/main/LICENSE.txt",
+    "license": "MIT",
+    "url": "https://github.com/SophieBlueVR/ArmatureCleanup/releases/download/v0.1.0/ArmatureCleanup-v0.1.9.zip",
+    "repo": "https://SophieBlueVR.github.io/vpm-repos/vpm.json",
+    "legacyFolders" : {
+        "Assets\\SophieBlue": "bc846a2331c27846b961e0f9fe107d54",
+        "Assets\\SophieBlue\\ArmatureCleanup": "0124009027f4c92f68cc6df60787ce3e"
+    },
+    "vpmDependencies": {
+        "com.vrchat.avatars": "3.1.x"
+    }
+}
