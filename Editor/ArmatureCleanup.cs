@@ -21,6 +21,20 @@ using VRC.SDK3.Dynamics.PhysBone.Components;
 
 namespace SophieBlue.ArmatureCleanup {
 
+    // useful extension methods
+    public static class ExtensionMethods {
+        public static string GetPath(this Transform current) {
+            if (current.parent == null)
+                return "/" + current.name;
+            return current.parent.GetPath() + "/" + current.name;
+        }
+
+        public static string GetPath(this Component component) {
+            return component.transform.GetPath() + "/" + component.GetType().ToString();
+        }
+    }
+
+
     [ExecuteInEditMode]
     public class ArmatureCleanup {
 
@@ -29,11 +43,11 @@ namespace SophieBlue.ArmatureCleanup {
 
         // a class to hold bones we're going to move
         struct MoveBone {
-            public Transform Bone;
+            public Transform Source;
             public Transform Target;
 
-            public MoveBone(Transform bone, Transform target) {
-                Bone = bone;
+            public MoveBone(Transform source, Transform target) {
+                Source = source;
                 Target = target;
             }
         }
@@ -52,26 +66,13 @@ namespace SophieBlue.ArmatureCleanup {
         void findExtraBones(Transform parent) {
 
             // find child transforms of this object
-            List<Transform> childBones = new List<Transform>(parent.GetComponentsInChildren<Transform>(true));
-            foreach (Transform bone in childBones) {
-                // skip same object
-                if (bone.gameObject.GetInstanceID() == parent.gameObject.GetInstanceID()) {
-                    continue;
-                }
-
-                // skip non-direct children
-                if (bone.parent.gameObject.GetInstanceID() != parent.gameObject.GetInstanceID()) {
-                    continue;
-                }
+            for (int i = 0; i < parent.childCount; i++) {
+                Transform bone = parent.GetChild(i);
 
                 // is this bone named the same as its parent?
                 if (bone.gameObject.name == parent.gameObject.name) {
-                    Debug.Log("Bone " + bone.gameObject.name +
-                                " (" + bone.gameObject.GetInstanceID() + ") " +
-                              " needs merging into parent: " + parent.gameObject.name +
-                                " (" + parent.gameObject.GetInstanceID() + ")");
+                    Debug.Log("Bone " + bone.GetPath() + " needs merging into parent " + parent.GetPath());
 
-                    // we'll be migrating this one
                     moveBones.Add(bone.gameObject.GetInstanceID(), new MoveBone(bone, parent));
                 }
 
@@ -80,30 +81,44 @@ namespace SophieBlue.ArmatureCleanup {
             }
         }
 
-        //
-        // Copy components of a specific type from the source object to the target
-        //
-        private void CopyComponents<T>(GameObject sourceObj, GameObject targetObj) where T: class {
-            Debug.Log("Copying components of type " + typeof(T));
-            foreach (T item in sourceObj.GetComponentsInChildren<T>(true)) {
+        // move all the bones which are children of bones we're going to merge
+        void moveExtraChildBones() {
+            // go through each of the bones we're planning to merge into their parent,
+            // looking for child bones so we can reparent those
+            foreach (MoveBone item in moveBones.Values) {
 
-                if (typeof(T) == typeof(VRCPhysBone)) {
-                    var root = (item as VRCPhysBone).GetRootTransform();
+                // find all children
+                for (int i = 0; i < item.Source.childCount; i++) {
+                    Transform bone = item.Source.GetChild(i);
 
-                    if (root != null) {
-                        // null this, it's not necessary
-                        if (root = sourceObj.transform) {
-                            (item as VRCPhysBone).rootTransform = null;
-                        }
-                        // otherwise we'll leave it as-is, event though this is kinda weird
+                    Debug.Log("Found childbone " + bone.GetPath());
+
+                    // if it's not found in the list, then re-parent it to
+                    // its current parent's new target
+                    if (! moveBones.ContainsKey(bone.gameObject.GetInstanceID())) {
+                        Debug.Log("Moving bone " + bone.GetPath() +
+                                  " to new parent " + item.Target.GetPath());
+                        Undo.SetTransformParent(bone, item.Target, "Reparent bone " + bone.GetPath());
                     }
                 }
+            }
+        }
 
-                T target = Undo.AddComponent(targetObj, typeof(T)) as T;
+        //
+        // Copy components of the given type from the source object to the target
+        //
+        private void CopyComponents<T>(Transform sourceObj, Transform targetObj) where T: class {
+            foreach (T item in sourceObj.gameObject.GetComponents<T>()) {
+                Debug.Log("Copying " + (item as Component) +
+                          " from " + sourceObj.GetPath() +
+                          " to " + targetObj.GetPath());
+
+                T target = Undo.AddComponent(targetObj.gameObject, typeof(T)) as T;
                 EditorUtility.CopySerialized(item as UnityEngine.Object, target as UnityEngine.Object);
             }
         }
 
+        // Update physbone root transform and colliders
         private void UpdatePhysbones(GameObject sourceObj) {
 
             foreach (VRCPhysBone item in sourceObj.GetComponentsInChildren<VRCPhysBone>(true)) {
@@ -133,6 +148,7 @@ namespace SophieBlue.ArmatureCleanup {
             }
         }
 
+        // update physbone collider root transforms
         private void UpdatePhysboneColliders(GameObject sourceObj) {
 
             foreach (VRCPhysBoneCollider item in sourceObj.GetComponentsInChildren<VRCPhysBoneCollider>(true)) {
@@ -142,13 +158,14 @@ namespace SophieBlue.ArmatureCleanup {
                     int rootId = root.gameObject.GetInstanceID();
                     MoveBone target;
                     if (moveBones.TryGetValue(rootId, out target)) {
-                        Undo.RecordObject(sourceObj, "Changing physbone collider root transform");
+                        Undo.RecordObject(item.gameObject, "Changing physbone collider root transform");
                         item.rootTransform = target.Target;
                     }
                 }
             }
         }
 
+        // update contacts root transforms
         private void UpdateContacts<T>(GameObject sourceObj) where T: class {
             Debug.Log("Updating Contacts of type " + typeof(T));
 
@@ -159,7 +176,7 @@ namespace SophieBlue.ArmatureCleanup {
                     int rootId = root.gameObject.GetInstanceID();
                     MoveBone target;
                     if (moveBones.TryGetValue(rootId, out target)) {
-                        Undo.RecordObject(sourceObj, "Changing contact root transform");
+                        Undo.RecordObject((item as Component).gameObject, "Changing contact root transform");
                         (item as ContactBase).rootTransform = target.Target;
                     }
                 }
@@ -167,6 +184,7 @@ namespace SophieBlue.ArmatureCleanup {
         }
 
 
+        // update constraint sources
         private void UpdateConstraints<T>(GameObject sourceObj) where T: class {
             Debug.Log("Updating Constraints of type " + typeof(T));
 
@@ -189,13 +207,14 @@ namespace SophieBlue.ArmatureCleanup {
                 }
 
                 if (updated) {
-                    Undo.RecordObject(sourceObj, "Changing constraint target");
+                    Undo.RecordObject((item as Component).gameObject, "Changing constraint target");
                     // write back
                     (item as IConstraint).SetSources(sources);
                 }
             }
         }
 
+        // update station enter/exit points
         private void UpdateStations(GameObject sourceObj) {
 
             foreach (VRCStation item in sourceObj.GetComponentsInChildren<VRCStation>(true)) {
@@ -204,7 +223,7 @@ namespace SophieBlue.ArmatureCleanup {
                     int id = item.stationEnterPlayerLocation.gameObject.GetInstanceID();
                     MoveBone target;
                     if (moveBones.TryGetValue(id, out target)) {
-                        Undo.RecordObject(sourceObj, "Changing station enter transform");
+                        Undo.RecordObject(item.gameObject, "Changing station enter transform");
                         item.stationEnterPlayerLocation = target.Target;
                     }
                 }
@@ -213,31 +232,45 @@ namespace SophieBlue.ArmatureCleanup {
                     int id = item.stationExitPlayerLocation.gameObject.GetInstanceID();
                     MoveBone target;
                     if (moveBones.TryGetValue(id, out target)) {
-                        Undo.RecordObject(sourceObj, "Changing station exit transform");
+                        Undo.RecordObject(item.gameObject, "Changing station exit transform");
                         item.stationExitPlayerLocation = target.Target;
                     }
                 }
             }
         }
 
+        // update skinned mesh renderers root bones
         private void UpdateSkinnedMeshRenderers(GameObject avatar) {
-            // Find the skinned mesh renderers which use the wrong bones
 
             foreach (SkinnedMeshRenderer mesh in avatar.GetComponentsInChildren<SkinnedMeshRenderer>()) {
+                // ignore anything without a root bone
+                if (mesh.rootBone == null) {
+                    continue;
+                }
 
-                // if it's got a root bone and we've found that in our "to move" list,
-                // then we'll switch that to the target bone
-                if (mesh.rootBone != null) {
-                    MoveBone target;
-                    int rootId = mesh.rootBone.gameObject.GetInstanceID();
-                    if (moveBones.TryGetValue(rootId, out target)) {
+                int rootId = mesh.rootBone.gameObject.GetInstanceID();
+                MoveBone target;
 
-                        // record changes we'll make to this thing
-                        Undo.RecordObject(mesh, "Changing root bone");
+                // if the root bone is one we're moving, we'll rework the
+                // renderer to use the target bones instead
+                if (moveBones.TryGetValue(rootId, out target)) {
 
-                        Debug.Log("Setting root of " + mesh.gameObject.name + " to " + target.Target.gameObject.name);
-                        mesh.rootBone = target.Target;
+                    Undo.RecordObject(mesh, "Changing mesh bones");
+                    Debug.Log("Changing mesh " + mesh.GetPath() + " root bone to " + target.Target.GetPath());
+                    mesh.rootBone = target.Target;
+
+                    // now we have to redo the whole bones list
+                    List<Transform> meshBones = new List<Transform>();
+                    foreach (Transform bone in mesh.bones) {
+                        int boneId = bone.gameObject.GetInstanceID();
+                        if (moveBones.TryGetValue(boneId, out target)) {
+                            meshBones.Add(target.Target);
+                        }
+                        else {
+                            meshBones.Add(bone);
+                        }
                     }
+                    mesh.bones = meshBones.ToArray();
                 }
             }
         }
@@ -265,29 +298,52 @@ namespace SophieBlue.ArmatureCleanup {
             moveBones.Clear();
             findExtraBones(root);
 
+            Debug.Log("Moving child bones...");
+            moveExtraChildBones();
 
             Debug.Log("Copying bone components...");
             foreach (MoveBone item in moveBones.Values) {
-                if (item.Bone.name == item.Target.name) {
-                    Debug.Log("Copying components on bone " + item.Bone.name);
-
-                    CopyComponents<AimConstraint>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<LookAtConstraint>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<ParentConstraint>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<PositionConstraint>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<RotationConstraint>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<ScaleConstraint>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<VRCContactReceiver>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<VRCContactSender>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<VRCPhysBone>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<VRCPhysBoneCollider>(item.Bone.gameObject, item.Target.gameObject);
-                    CopyComponents<VRCStation>(item.Bone.gameObject, item.Target.gameObject);
-                }
+                CopyComponents<AimConstraint>(item.Source, item.Target);
+                CopyComponents<Animation>(item.Source, item.Target);
+                CopyComponents<Animator>(item.Source, item.Target);
+                CopyComponents<AudioSource>(item.Source, item.Target);
+                CopyComponents<Camera>(item.Source, item.Target);
+                CopyComponents<Cloth>(item.Source, item.Target);
+                CopyComponents<Collider>(item.Source, item.Target);
+                CopyComponents<FlareLayer>(item.Source, item.Target);
+                CopyComponents<CharacterJoint>(item.Source, item.Target);
+                CopyComponents<ConfigurableJoint>(item.Source, item.Target);
+                CopyComponents<HingeJoint>(item.Source, item.Target);
+                CopyComponents<FixedJoint>(item.Source, item.Target);
+                CopyComponents<SpringJoint>(item.Source, item.Target);
+                CopyComponents<Light>(item.Source, item.Target);
+                CopyComponents<LineRenderer>(item.Source, item.Target);
+                CopyComponents<LookAtConstraint>(item.Source, item.Target);
+                CopyComponents<MeshFilter>(item.Source, item.Target);
+                CopyComponents<MeshRenderer>(item.Source, item.Target);
+                CopyComponents<ParentConstraint>(item.Source, item.Target);
+                CopyComponents<ParticleSystem>(item.Source, item.Target);
+                CopyComponents<ParticleSystemRenderer>(item.Source, item.Target);
+                CopyComponents<PositionConstraint>(item.Source, item.Target);
+                CopyComponents<Rigidbody>(item.Source, item.Target);
+                CopyComponents<RotationConstraint>(item.Source, item.Target);
+                CopyComponents<ScaleConstraint>(item.Source, item.Target);
+                CopyComponents<TrailRenderer>(item.Source, item.Target);
+                CopyComponents<VRCContactReceiver>(item.Source, item.Target);
+                CopyComponents<VRCContactSender>(item.Source, item.Target);
+                CopyComponents<VRCPhysBone>(item.Source, item.Target);
+                CopyComponents<VRCPhysBoneCollider>(item.Source, item.Target);
+                CopyComponents<VRCStation>(item.Source, item.Target);
+                CopyComponents<VRCSpatialAudioSource>(item.Source, item.Target);
+                //CopyComponents<MeshParticleEmitter>(item.Source, item.Target);
+                //CopyComponents<ParticleAnimtor>(item.Source, item.Target);
+                //CopyComponents<ParticleRenderer>(item.Source, item.Target);
             }
 
             Debug.Log("Updating SkinnedMeshRenderers...");
             UpdateSkinnedMeshRenderers(_avatar);
 
+            // Update components which may refer to now-moved transforms
             Debug.Log("Updating components...");
             UpdateContacts<VRCContactSender>(_avatar);
             UpdateContacts<VRCContactReceiver>(_avatar);
@@ -303,12 +359,9 @@ namespace SophieBlue.ArmatureCleanup {
 
             // Finally, destroy all the duplicate bones
             foreach (MoveBone item in moveBones.Values) {
-                if (item.Bone.name == item.Target.name) {
-                    Debug.Log("Destroying object " + item.Bone.name);
-                    Undo.DestroyObjectImmediate(item.Bone.gameObject);
-                }
+                Debug.Log("Destroying duplicate bone " + item.Source.GetPath());
+                Undo.DestroyObjectImmediate(item.Source.gameObject);
             }
-
             Undo.CollapseUndoOperations(undoGroupIndex);
         }
     }
