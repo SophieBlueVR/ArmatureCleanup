@@ -242,7 +242,7 @@ namespace SophieBlue.ArmatureCleanup {
         // update skinned mesh renderers root bones
         private void UpdateSkinnedMeshRenderers(GameObject avatar) {
 
-            foreach (SkinnedMeshRenderer mesh in avatar.GetComponentsInChildren<SkinnedMeshRenderer>()) {
+            foreach (SkinnedMeshRenderer mesh in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true)) {
                 // ignore anything without a root bone
                 if (mesh.rootBone == null) {
                     continue;
@@ -264,6 +264,8 @@ namespace SophieBlue.ArmatureCleanup {
                     foreach (Transform bone in mesh.bones) {
                         int boneId = bone.gameObject.GetInstanceID();
                         if (moveBones.TryGetValue(boneId, out target)) {
+                            Debug.Log("Replacing mesh bone " + bone.GetPath() +
+                                      " with " + target.Target.GetPath());
                             meshBones.Add(target.Target);
                         }
                         else {
