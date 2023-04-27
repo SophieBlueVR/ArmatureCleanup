@@ -48,7 +48,7 @@ The process:
 	* VRCStation
 	* VRCSpatialAudioSource
 * Find all skinned mesh renderers which use "extra" bones, and re-assign the
-  mesh to use the main avatar bones 
+  mesh to use the main avatar bones
 * Update any existing or copied components of the following types, switching
   their use of the "extra" bones to the appropriate parent bone:
 	* VRCContactSender
@@ -64,6 +64,16 @@ The process:
 	* Station
 * Destroy the "extra" bones
 
+### Caveats
+
+This process currently only works if the bones of your "add-on" armature are
+named *exactly* the same as the bones you parented them to.  Often you'll be
+adding a totally different armature to your avatar.  So, you'll need to rename
+all the bones to match the avatar's armature before attempting a merge like
+this.
+
+Yes, I'm considering how to actually do that :)
+
 ## Usage
 
 Click on `Tools` > `SophieBlue` > `ArmatureCleanup` in the menu bar.  In the
@@ -71,7 +81,7 @@ window that opens, drag your avatar into the appropriate slot and click `Clean
 up!`
 
 I cannot stress this enough:
-	
+
 **MAKE A BACKUP BEFORE YOU RUN THIS TOOL**
 
 This tool makes assumptions and guesses and may not work at all, or even may
