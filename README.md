@@ -15,6 +15,14 @@ Click on `Tools` > `SophieBlue` > `ArmatureCleanup` in the menu bar.  In the
 window that opens, drag your avatar into the appropriate slot and click `Clean
 up!`
 
+I cannot stress this enough:
+	
+**MAKE A BACKUP BEFORE YOU RUN THIS TOOL**
+
+This tool makes assumptions and guesses and may not work at all, or even may
+cause permanent changes to your project.  I offer no guarantee and no support,
+use this as your own risk.
+
 ## Installation
 
 There are two methods, pick **only one**:
@@ -37,5 +45,5 @@ vpm add package io.github.sophiebluevr.armaturecleanup
 
 ## License
 
-AvatarDresser is available as-is under MIT. For more information see
+ArmatureCleanup is available as-is under MIT. For more information see
 [LICENSE](/LICENSE.txt).
