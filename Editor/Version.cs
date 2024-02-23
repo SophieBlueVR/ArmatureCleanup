@@ -4,6 +4,6 @@ namespace SophieBlue.ArmatureCleanup {
     [UsedImplicitly]
     internal static class Version
     {
-        [UsedImplicitly] public const string VERSION = "v0.1.0";
+        [UsedImplicitly] public const string VERSION = "v0.1.1";
     }
 }
