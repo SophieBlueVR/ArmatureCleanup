@@ -101,7 +101,7 @@ file.
 ### VPM
 
 You can also use [VRChat's VPM tool](https://vcc.docs.vrchat.com/vpm/cli/)!
-First add my [VPM Repository](https://github.com/SophieBlueVR/vpm-repos), and
+First add my [VPM Repository](https://sophiebluevr.github.io/vpm/), and
 then you can simply go to your project directory and type:
 
 ```
